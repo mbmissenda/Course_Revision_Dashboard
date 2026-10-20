@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Course Revision Tracker</title>
+<style>
+:root{
+  --bg:#f6f5f1; --panel:#ffffff; --fg:#1f2328; --muted:#5d6670; --line:#dcdad3; --soft:#efede7;
+  --accent:#2f5d8a; --accent-fg:#fff;
+  --ns:#9aa1a9; --ip:#2f6fb3; --done:#2e7d4f; --bad:#b3362f; --warn:#a86a00;
+  --ns-bg:#eceef0; --ip-bg:#e3eef9; --done-bg:#e2f2e8; --bad-bg:#f9e5e3;
+  --serif: Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16181b; --panel:#1f2226; --fg:#e7e9ec; --muted:#a2a9b1; --line:#353a40; --soft:#272b30;
+    --accent:#7fb0e0; --accent-fg:#0d1720;
+    --ns:#7d858e; --ip:#6aa6e6; --done:#5cbf84; --bad:#ef7d74; --warn:#e0a844;
+    --ns-bg:#2b2f34; --ip-bg:#1d3047; --done-bg:#1c3527; --bad-bg:#3d2220;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+h1,h2,h3{margin:0;font-weight:600}
+h1{font-family:var(--serif);font-size:clamp(22px,3.2vw,30px);font-weight:500}
+h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 12px;font-size:14px}
+.btn:hover{background:var(--soft)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.small{padding:4px 9px;font-size:13px}
+.btn.danger{color:var(--bad)}
+.link{background:none;border:none;color:var(--accent);padding:0;text-decoration:underline;font-size:13px}
+input[type=text],input[type=date],select,textarea{border:1px solid var(--line);background:var(--panel);border-radius:7px;padding:6px 8px;font-size:14px;min-width:0}
+textarea{width:100%;resize:vertical}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+section{margin-top:18px}
+
+/* header */
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
+.goal{color:var(--muted);margin-top:4px;max-width:70ch}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.syncbar{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px;color:var(--muted)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.banner{margin-top:12px;border:1px solid var(--warn);background:var(--soft);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.banner[hidden]{display:none}
+
+/* progress */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.kpi .big{font-family:var(--serif);font-size:40px;line-height:1.05}
+.kpi .lbl{font-size:13px;color:var(--muted)}
+.stack{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--ns-bg);margin:16px 0 8px}
+.stack span{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted)}
+.breakdowns{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;margin-top:20px}
+.brow{display:grid;grid-template-columns:minmax(90px,140px) 1fr auto;gap:10px;align-items:center;font-size:13px;margin:7px 0}
+.brow .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--ns-bg)}
+.mini span{display:block;height:100%}
+.brow .num{color:var(--muted);font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
+
+/* timeline */
+.tl{position:relative}
+.tl-axis,.tl-row{display:grid;grid-template-columns:clamp(84px,18vw,150px) 1fr;gap:10px;align-items:center}
+.tl-axis .track{position:relative;height:20px;font-size:11px;color:var(--muted)}
+.tl-axis .tick{position:absolute;top:0;transform:translateX(-1px);border-left:1px solid var(--line);padding-left:4px;height:20px;white-space:nowrap}
+.tl-row{min-height:34px;border-top:1px solid var(--soft)}
+.tl-row .label{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-row .label small{display:block;color:var(--muted);font-size:11px}
+.tl-row .track{position:relative;height:34px}
+.band{position:absolute;top:9px;height:16px;border-radius:5px;background:var(--soft);border:1px solid var(--line)}
+.band.current{border-color:var(--accent)}
+.tdot{position:absolute;top:10px;width:14px;height:14px;margin-left:-7px;border-radius:50%;border:2px solid var(--panel);padding:0}
+.tdot.ns{background:var(--ns)} .tdot.ip{background:var(--ip)} .tdot.done{background:var(--done)}
+.tdot.overdue{box-shadow:0 0 0 2px var(--bad)}
+.today{position:absolute;top:20px;bottom:0;width:0;border-left:2px dashed var(--bad);pointer-events:none}
+.today span{position:absolute;top:-18px;left:-18px;font-size:10px;color:var(--bad);font-weight:600;background:var(--panel);padding:0 3px}
+.tip{position:absolute;z-index:20;pointer-events:none;background:var(--fg);color:var(--bg);font-size:12px;border-radius:7px;padding:7px 9px;max-width:240px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.tip[hidden]{display:none}
+.tl-note{font-size:12px;color:var(--muted);margin-top:10px}
+
+/* tasks */
+.addform{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;gap:8px;margin-bottom:16px;align-items:end}
+.addform label,.filters label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:3px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px;align-items:end}
+.filters .grow{flex:1 1 180px}
+.thead,.trow{display:grid;grid-template-columns:minmax(200px,2.4fr) 1.1fr 1.25fr 1.1fr .8fr .9fr;gap:10px;align-items:center}
+.thead{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:0 10px 6px;border-bottom:1px solid var(--line)}
+.task{border-bottom:1px solid var(--line)}
+.trow{padding:9px 10px}
+.task.done .ttl{color:var(--muted)}
+.ttl{font-weight:500}
+.chip{display:inline-block;font-size:11px;border-radius:999px;padding:1px 8px;background:var(--soft);color:var(--muted);margin-top:2px;margin-right:4px}
+.chip.overdue{background:var(--bad-bg);color:var(--bad);font-weight:600}
+.chip.appr{background:var(--done-bg);color:var(--done);font-weight:600}
+select.status{font-weight:600;border-width:1px}
+select.status.ns{background:var(--ns-bg)} select.status.ip{background:var(--ip-bg);color:var(--ip)} select.status.done{background:var(--done-bg);color:var(--done)}
+.appr-cell label{display:flex;gap:6px;align-items:center;font-size:13px}
+.appr-cell input{width:17px;height:17px;accent-color:var(--done)}
+.notesbtn{white-space:nowrap}
+.detail{padding:4px 10px 16px;display:grid;grid-template-columns:1fr 1fr;gap:18px;background:var(--soft);border-radius:0 0 10px 10px;margin:0 0 6px}
+.detail[hidden]{display:none}
+.detail h3{font-size:13px;margin:12px 0 8px}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:14px}
+.note .meta{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.note p{margin:4px 0 0;white-space:pre-wrap}
+.noteform{display:grid;gap:6px}
+.noteform .row{display:flex;gap:8px;align-items:center}
+.editgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.editgrid label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:3px}
+.editgrid .full{grid-column:1/-1}
+.empty{padding:22px;text-align:center;color:var(--muted)}
+.count{font-size:13px;color:var(--muted);margin-left:auto}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* dialog */
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--fg);padding:0;width:min(720px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+.dlg{padding:18px}
+.dlg h2{color:var(--fg);font-size:18px;text-transform:none;letter-spacing:0;font-family:var(--serif);font-weight:500}
+.dlg .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.dlg label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:3px;margin-bottom:10px}
+.phrow{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:6px;align-items:center}
+.dlg footer{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+
+@media (max-width:860px){
+  .addform{grid-template-columns:1fr 1fr}
+  .addform .t{grid-column:1/-1}
+  .thead{display:none}
+  .trow{grid-template-columns:1fr 1fr;row-gap:8px}
+  .trow .tcell-title{grid-column:1/-1}
+  .detail{grid-template-columns:1fr}
+  .dlg .grid{grid-template-columns:1fr}
+  .phrow{grid-template-columns:1fr 1fr}
+  .phrow input[type=text]{grid-column:1/-1}
+}
+@media print{
+  .actions,.syncbar,.banner,.addform,.filters,.notesbtn,.detail button,.noteform,.btn{display:none!important}
+  .panel{border-color:#ccc}
+  body{background:#fff}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="courseTitle">Course Revision</h1>
+      <div class="goal" id="goalText"></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnSettings" type="button">Course &amp; timeline settings</button>
+      <button class="btn" id="btnImport" type="button">Load data file</button>
+      <button class="btn primary" id="btnExport" type="button">Export data.json</button>
+      <input type="file" id="fileInput" accept=".json,application/json" class="sr" aria-label="Load data file">
+    </div>
+  </header>
+  <div class="syncbar" role="status" aria-live="polite">
+    <span id="syncState"></span>
+    <span id="syncSource"></span>
+  </div>
+  <div class="banner" id="teamBanner" hidden>
+    <span id="teamBannerText"></span>
+    <button class="btn small primary" id="btnUseTeam" type="button">Load team version</button>
+    <button class="btn small" id="btnKeepMine" type="button">Keep my version</button>
+  </div>
+
+  <!-- PROGRESS -->
+  <section class="panel" aria-labelledby="h-progress">
+    <h2 id="h-progress">Progress toward the revision goal</h2>
+    <div class="kpis">
+      <div class="kpi"><div class="big" id="kPct">—</div><div class="lbl" id="kPctLbl">of tasks completed</div></div>
+      <div class="kpi"><div class="big" id="kAppr">—</div><div class="lbl">tasks approved by PD</div></div>
+      <div class="kpi"><div class="big" id="kDays">—</div><div class="lbl" id="kDaysLbl">days to launch</div></div>
+      <div class="kpi"><div class="big" id="kOver">—</div><div class="lbl">overdue tasks</div></div>
+    </div>
+    <div class="stack" id="stack" role="img"></div>
+    <div class="legend" id="legend"></div>
+    <div class="breakdowns">
+      <div><h3 style="font-size:13px;margin-bottom:6px">By person responsible</h3><div id="byOwner"></div></div>
+      <div><h3 style="font-size:13px;margin-bottom:6px">By phase</h3><div id="byPhase"></div></div>
+    </div>
+  </section>
+
+  <!-- TIMELINE -->
+  <section class="panel" aria-labelledby="h-timeline">
+    <h2 id="h-timeline">Timeline</h2>
+    <div class="tl" id="timeline"></div>
+    <div class="tip" id="tip" hidden></div>
+    <div class="tl-note">Bars are phases. Dots are task due dates: <span class="dot" style="background:var(--ns)"></span>not started <span class="dot" style="background:var(--ip)"></span>in progress <span class="dot" style="background:var(--done)"></span>completed. A red ring means overdue. Click a dot to open that task.</div>
+  </section>
+
+  <!-- TASKS -->
+  <section class="panel" aria-labelledby="h-tasks">
+    <h2 id="h-tasks">Tasks</h2>
+    <form class="addform" id="addForm" autocomplete="off">
+      <label class="t">New task<input type="text" id="newTitle" required placeholder="e.g., Final syllabus review"></label>
+      <label>Phase<select id="newPhase"></select></label>
+      <label>Person responsible<select id="newOwner"></select></label>
+      <label>Due date<input type="date" id="newDue"></label>
+      <label>Status<select id="newStatus"></select></label>
+      <button class="btn primary" type="submit">Add task</button>
+    </form>
+    <div class="filters">
+      <label class="grow">Search<input type="text" id="fSearch" placeholder="Search tasks and notes"></label>
+      <label>Person<select id="fOwner"></select></label>
+      <label>Status<select id="fStatus"></select></label>
+      <label>Phase<select id="fPhase"></select></label>
+      <label>Sort<select id="fSort">
+        <option value="plan">Plan order</option>
+        <option value="due">Due date</option>
+        <option value="status">Status</option>
+      </select></label>
+      <span class="count" id="fCount"></span>
+    </div>
+    <div class="thead" aria-hidden="true">
+      <span>Task</span><span>Person responsible</span><span>Status</span><span>Due</span><span>Approval</span><span></span>
+    </div>
+    <div id="taskList"></div>
+  </section>
+</div>
+
+<dialog id="settingsDlg" aria-labelledby="dlgTitle">
+  <form method="dialog" class="dlg" id="settingsForm">
+    <h2 id="dlgTitle">Course &amp; timeline settings</h2>
+    <label>Course name<input type="text" id="sTitle"></label>
+    <label>Revision goal (shown under the title)<input type="text" id="sGoal"></label>
+    <div class="grid">
+      <label>SME name<input type="text" id="sSME" placeholder="Subject matter expert"></label>
+      <label>ID name<input type="text" id="sID" placeholder="Instructional designer"></label>
+      <label>PD name<input type="text" id="sPD" placeholder="Program director"></label>
+    </div>
+    <h3 style="font-size:13px;margin:6px 0 8px">Phases (the last phase's end date is the launch date)</h3>
+    <div id="phaseRows"></div>
+    <button class="btn small" type="button" id="addPhase">+ Add phase</button>
+    <footer>
+      <button class="btn" value="cancel" type="submit" formnovalidate>Cancel</button>
+      <button class="btn primary" value="save" type="submit" id="saveSettings">Save</button>
+    </footer>
+  </form>
+</dialog>
+
+<script>
+(function(){
+"use strict";
+var STORE_KEY = "course-revision-dashboard-v1";
+var OWNERS = ["SME","ID","PD"];
+var OWNER_LONG = {SME:"Subject matter expert", ID:"Instructional designer", PD:"Program director"};
+var STATUSES = ["Not started","In progress","Completed"];
+var SCLASS = {"Not started":"ns","In progress":"ip","Completed":"done"};
+var SCOLOR = {"Not started":"var(--ns)","In progress":"var(--ip)","Completed":"var(--done)"};
+
+/* ---------- helpers ---------- */
+function h(tag, attrs){
+  var el = document.createElement(tag), props = {};
+  attrs = attrs || {};
+  Object.keys(attrs).forEach(function(k){
+    var v = attrs[k];
+    if (v == null || v === false) return;
+    if (k === "class") el.className = v;
+    else if (k === "text") el.textContent = v;
+    else if (k === "value" || k === "checked" || k === "selected") props[k] = v;
+    else if (k.slice(0,2) === "on" && typeof v === "function") el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, "");
+    else el.setAttribute(k, v);
+  });
+  for (var i = 2; i < arguments.length; i++) append(el, arguments[i]);
+  Object.keys(props).forEach(function(k){ el[k] = props[k]; });
+  return el;
+}
+function append(el, c){
+  if (c == null || c === false) return;
+  if (Array.isArray(c)) { c.forEach(function(x){ append(el, x); }); return; }
+  el.append(c.nodeType ? c : document.createTextNode(String(c)));
+}
+function uid(){ return Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-4); }
+function pd(s){ if(!s) return null; var p = s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function iso(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+function addDays(s, n){ var d = pd(s); d.setDate(d.getDate()+n); return iso(d); }
+function todayIso(){ return iso(new Date()); }
+function fmt(s, yr){ var d = pd(s); if(!d) return "—"; return d.toLocaleDateString("en-US", yr ? {month:"short",day:"numeric",year:"numeric"} : {month:"short",day:"numeric"}); }
+function fmtStamp(s){ var d = new Date(s); if (isNaN(d)) return ""; return d.toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}); }
+function daysBetween(a, b){ return Math.round((pd(b) - pd(a)) / 86400000); }
+function isOverdue(t){ return t.due && t.status !== "Completed" && t.due < todayIso(); }
+function opt(v, label, sel){ return h("option", {value:v, text:label || v, selected: v === sel}); }
+
+/* ---------- seed data ---------- */
+function seed(){
+  var phases = [
+    {id:"kickoff", name:"Kickoff & planning", start:"2026-10-01", end:"2026-10-30"},
+    {id:"m1", name:"Module 1", start:"2026-11-02", end:"2026-11-20"},
+    {id:"m2", name:"Module 2", start:"2026-11-23", end:"2026-12-11"},
+    {id:"m3", name:"Module 3", start:"2026-12-14", end:"2027-01-15"},
+    {id:"m4", name:"Module 4", start:"2027-01-18", end:"2027-02-05"},
+    {id:"m5", name:"Module 5", start:"2027-02-08", end:"2027-02-26"},
+    {id:"review", name:"Final review & launch", start:"2027-03-01", end:"2027-03-15"}
+  ];
+  var tasks = [];
+  function T(title, phase, owner, status, due){
+    tasks.push({id:uid(), title:title, phase:phase, owner:owner, status:status, due:due,
+      approved:false, approvedOn:"", notes:[], createdAt:new Date().toISOString()});
+  }
+  T("Learning objectives updated","kickoff","PD","Completed","2026-10-09");
+  T("Kickoff paperwork","kickoff","PD","In progress","2026-10-23");
+  T("Revision timeline","kickoff","PD","In progress","2026-10-23");
+  T("Course mapping","kickoff","ID","In progress","2026-10-30");
+  T("Landing page","kickoff","ID","In progress","2026-10-30");
+  for (var i = 1; i <= 5; i++){
+    var ph = phases[i], len = daysBetween(ph.start, ph.end);
+    var at = function(f){ return addDays(ph.start, Math.round(len * f)); };
+    T("Module " + i + " PowerPoint","m"+i,"ID","Not started", at(.65));
+    T("Module " + i + " content","m"+i,"SME","Not started", at(.45));
+    T("Module " + i + " quiz","m"+i,"SME","Not started", at(.8));
+    T("Module " + i + " accessibility check","m"+i,"ID","Not started", at(1));
+  }
+  return {
+    version:1, savedAt:"",
+    settings:{ courseTitle:"Course Revision", goal:"Goal: every task completed and approved by the PD before launch.",
+      team:{SME:"", ID:"", PD:""} },
+    phases:phases, tasks:tasks
+  };
+}
+
+/* ---------- state & persistence ---------- */
+var state, meta = {dirty:false, baseSavedAt:"", source:"starter"};
+var expanded = {};
+var teamPending = null;
+
+function valid(d){ return d && typeof d === "object" && Array.isArray(d.tasks) && Array.isArray(d.phases) && d.settings; }
+function normalize(d){
+  d.settings.team = d.settings.team || {SME:"",ID:"",PD:""};
+  d.tasks.forEach(function(t){
+    t.id = t.id || uid(); t.notes = Array.isArray(t.notes) ? t.notes : [];
+    if (STATUSES.indexOf(t.status) < 0) t.status = "Not started";
+    t.approved = !!t.approved;
+  });
+  d.phases.forEach(function(p){ p.id = p.id || uid(); });
+  return d;
+}
+function readLocal(){
+  try { var raw = localStorage.getItem(STORE_KEY); if (!raw) return null;
+    var o = JSON.parse(raw); return valid(o.data) ? o : null; } catch(e){ return null; }
+}
+function saveLocal(){
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({data:state, dirty:meta.dirty, baseSavedAt:meta.baseSavedAt, source:meta.source})); } catch(e){}
+}
+function changed(){ meta.dirty = true; saveLocal(); renderSync(); }
+
+var local = readLocal();
+if (local){ state = normalize(local.data); meta.dirty = !!local.dirty; meta.baseSavedAt = local.baseSavedAt || ""; meta.source = local.source || "browser"; }
+else { state = seed(); }
+
+function adoptTeam(d, label){
+  state = normalize(d); meta.dirty = false; meta.baseSavedAt = d.savedAt || ""; meta.source = label || "team";
+  expanded = {}; saveLocal(); renderAll();
+}
+
+/* try loading the team's shared data.json (works on GitHub Pages / any web server) */
+if (location.protocol.indexOf("http") === 0){
+  fetch("data.json", {cache:"no-store"}).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+    if (!valid(d)) return;
+    var teamAt = d.savedAt || "";
+    if (!local){ adoptTeam(d, "team"); return; }
+    if (teamAt && teamAt > (meta.baseSavedAt || "")){
+      if (!meta.dirty){ adoptTeam(d, "team"); }
+      else {
+        teamPending = d;
+        document.getElementById("teamBannerText").textContent =
+          "A newer team file (exported " + fmtStamp(teamAt) + ") is on the site, but this browser has changes that haven't been exported.";
+        document.getElementById("teamBanner").hidden = false;
+      }
+    }
+  }).catch(function(){});
+}
+
+/* ---------- lookups ---------- */
+function phaseById(id){ for (var i=0;i<state.phases.length;i++) if (state.phases[i].id === id) return state.phases[i]; return null; }
+function phaseName(id){ var p = phaseById(id); return p ? p.name : "Other"; }
+function ownerLabel(o){ var n = state.settings.team[o]; return n ? o + " · " + n : o; }
+function launchDate(){ var ends = state.phases.map(function(p){return p.end;}).filter(Boolean).sort(); return ends[ends.length-1] || ""; }
+
+/* ---------- render: header & sync ---------- */
+function renderHeader(){
+  document.getElementById("courseTitle").textContent = state.settings.courseTitle || "Course Revision";
+  document.title = (state.settings.courseTitle || "Course Revision") + " · Revision Tracker";
+  document.getElementById("goalText").textContent = state.settings.goal || "";
+}
+function renderSync(){
+  var el = document.getElementById("syncState");
+  el.textContent = "";
+  if (meta.dirty){
+    append(el, [h("span",{class:"dot",style:"background:var(--warn)"}), "Changes saved in this browser only. Export data.json and upload it to GitHub to share them."]);
+  } else {
+    append(el, [h("span",{class:"dot",style:"background:var(--done)"}), "Up to date with the last exported file"]);
+  }
+  var src = document.getElementById("syncSource");
+  src.textContent = state.savedAt ? "Team file last exported " + fmtStamp(state.savedAt) : "Starter task list (not yet exported)";
+}
+
+/* ---------- render: progress ---------- */
+function bar(container, counts, total){
+  container.textContent = "";
+  STATUSES.forEach(function(s){
+    if (!counts[s]) return;
+    append(container, h("span",{style:"width:"+(counts[s]/total*100)+"%;background:"+SCOLOR[s], title:s+": "+counts[s]}));
+  });
+}
+function countBy(list){ var c = {"Not started":0,"In progress":0,"Completed":0}; list.forEach(function(t){ c[t.status]++; }); return c; }
+
+function renderProgress(){
+  var all = state.tasks, total = all.length, c = countBy(all);
+  var pct = total ? Math.round(c["Completed"]/total*100) : 0;
+  document.getElementById("kPct").textContent = pct + "%";
+  document.getElementById("kPctLbl").textContent = c["Completed"] + " of " + total + " tasks completed";
+  var appr = all.filter(function(t){return t.approved;}).length;
+  document.getElementById("kAppr").textContent = appr + "/" + total;
+  var L = launchDate();
+  if (L){
+    var d = daysBetween(todayIso(), L);
+    document.getElementById("kDays").textContent = d >= 0 ? d : "Launched";
+    document.getElementById("kDaysLbl").textContent = d >= 0 ? "days to launch (" + fmt(L, true) + ")" : "launch date was " + fmt(L, true);
+  } else { document.getElementById("kDays").textContent = "—"; }
+  var over = all.filter(isOverdue).length;
+  var kO = document.getElementById("kOver"); kO.textContent = over; kO.style.color = over ? "var(--bad)" : "";
+
+  var st = document.getElementById("stack");
+  bar(st, c, total || 1);
+  st.setAttribute("aria-label", STATUSES.map(function(s){return s+": "+c[s];}).join(", "));
+  var lg = document.getElementById("legend"); lg.textContent = "";
+  STATUSES.forEach(function(s){ append(lg, h("span",{}, h("span",{class:"dot",style:"background:"+SCOLOR[s]}), s + " " + c[s] + " (" + (total?Math.round(c[s]/total*100):0) + "%)")); });
+
+  function rows(target, groups){
+    target.textContent = "";
+    groups.forEach(function(g){
+      if (!g.list.length) return;
+      var cc = countBy(g.list), mini = h("div",{class:"mini", role:"img", "aria-label": g.name + ": " + cc["Completed"] + " of " + g.list.length + " completed"});
+      bar(mini, cc, g.list.length);
+      append(target, h("div",{class:"brow"}, h("span",{class:"name", title:g.name, text:g.name}), mini, h("span",{class:"num", text: cc["Completed"]+"/"+g.list.length})));
+    });
+  }
+  rows(document.getElementById("byOwner"), OWNERS.map(function(o){ return {name:ownerLabel(o), list:all.filter(function(t){return t.owner===o;})}; })
+    .concat([{name:"Unassigned", list:all.filter(function(t){return OWNERS.indexOf(t.owner)<0;})}]));
+  var known = {}; state.phases.forEach(function(p){known[p.id]=1;});
+  rows(document.getElementById("byPhase"), state.phases.map(function(p){ return {name:p.name, list:all.filter(function(t){return t.phase===p.id;})}; })
+    .concat([{name:"Other", list:all.filter(function(t){return !known[t.phase];})}]));
+}
+
+/* ---------- render: timeline ---------- */
+function renderTimeline(){
+  var box = document.getElementById("timeline"); box.textContent = "";
+  var dates = [];
+  state.phases.forEach(function(p){ if(p.start) dates.push(p.start); if(p.end) dates.push(p.end); });
+  state.tasks.forEach(function(t){ if (t.due) dates.push(t.due); });
+  if (!dates.length){ append(box, h("div",{class:"empty",text:"Add phase dates in settings to see the timeline."})); return; }
+  dates.sort();
+  var min = pd(dates[0]); min.setDate(1);
+  var max = pd(dates[dates.length-1]); max = new Date(max.getFullYear(), max.getMonth()+1, 1);
+  var span = max - min;
+  function x(s){ return ((pd(s) - min) / span * 100); }
+
+  var axis = h("div",{class:"track"});
+  for (var m = new Date(min); m < max; m = new Date(m.getFullYear(), m.getMonth()+1, 1)){
+    var lab = m.toLocaleDateString("en-US",{month:"short"}) + (m.getMonth()===0 || +m===+min ? " ’" + String(m.getFullYear()).slice(2) : "");
+    append(axis, h("span",{class:"tick", style:"left:"+x(iso(m))+"%", text: lab}));
+  }
+  append(box, h("div",{class:"tl-axis"}, h("span",{}), axis));
+
+  var t0 = todayIso();
+  var rowsDef = state.phases.map(function(p){ return {p:p, tasks: state.tasks.filter(function(t){return t.phase===p.id;})}; });
+  var known = {}; state.phases.forEach(function(p){known[p.id]=1;});
+  var other = state.tasks.filter(function(t){return !known[t.phase];});
+  if (other.length) rowsDef.push({p:{id:"_other", name:"Other"}, tasks:other});
+
+  rowsDef.forEach(function(r){
+    var track = h("div",{class:"track"});
+    var p = r.p;
+    if (p.start && p.end){
+      var cur = p.start <= t0 && t0 <= p.end;
+      append(track, h("div",{class:"band"+(cur?" current":""), style:"left:"+x(p.start)+"%;width:"+Math.max(.6, x(p.end)-x(p.start))+"%"}));
+    }
+    r.tasks.filter(function(t){return t.due;}).forEach(function(t){
+      var dot = h("button",{type:"button", class:"tdot "+SCLASS[t.status]+(isOverdue(t)?" overdue":""), style:"left:"+x(t.due)+"%",
+        "aria-label": t.title + ", " + t.status + ", due " + fmt(t.due, true) + (isOverdue(t)?", overdue":""),
+        onclick:function(){ openTask(t.id); },
+        onmouseenter:function(e){ showTip(e.currentTarget, t); }, onmouseleave:hideTip,
+        onfocus:function(e){ showTip(e.currentTarget, t); }, onblur:hideTip });
+      append(track, dot);
+    });
+    var done = r.tasks.filter(function(t){return t.status==="Completed";}).length;
+    var sub = (p.start && p.end ? fmt(p.start) + " – " + fmt(p.end) : "") + (r.tasks.length ? " · " + done + "/" + r.tasks.length : "");
+    append(box, h("div",{class:"tl-row"}, h("div",{class:"label", title:p.name}, p.name, h("small",{text:sub})), track));
+  });
+
+  if (t0 >= iso(min) && t0 <= iso(max)){
+    var overlay = h("div",{class:"tl-axis", style:"position:absolute;inset:0;pointer-events:none"}, h("span",{}),
+      h("div",{style:"position:relative;height:100%"}, h("div",{class:"today", style:"left:"+x(t0)+"%"}, h("span",{text:"Today"}))));
+    box.append(overlay);
+  }
+}
+var tip = document.getElementById("tip");
+function showTip(el, t){
+  tip.textContent = "";
+  append(tip, [h("strong",{text:t.title}), h("br"), t.status + " · " + ownerLabel(t.owner), h("br"), "Due " + fmt(t.due, true) + (isOverdue(t) ? " · OVERDUE" : "") + (t.approved ? " · PD approved" : "")]);
+  tip.hidden = false;
+  var wrap = tip.offsetParent.getBoundingClientRect(), r = el.getBoundingClientRect();
+  var left = r.left - wrap.left + r.width/2 - tip.offsetWidth/2;
+  left = Math.max(4, Math.min(left, wrap.width - tip.offsetWidth - 4));
+  tip.style.left = left + "px";
+  tip.style.top = (r.top - wrap.top - tip.offsetHeight - 8) + "px";
+}
+function hideTip(){ tip.hidden = true; }
+
+/* ---------- render: task list ---------- */
+function fillSelect(sel, items, withAll, value){
+  var cur = value !== undefined ? value : sel.value;
+  sel.textContent = "";
+  if (withAll) append(sel, opt("", withAll));
+  items.forEach(function(it){ append(sel, opt(it.v, it.l)); });
+  sel.value = cur; if (sel.selectedIndex < 0 || sel.value !== cur) sel.selectedIndex = 0;
+}
+function phaseItems(){ return state.phases.map(function(p){return {v:p.id,l:p.name};}).concat([{v:"_other",l:"Other"}]); }
+function ownerItems(){ return OWNERS.map(function(o){return {v:o,l:ownerLabel(o)};}); }
+function statusItems(){ return STATUSES.map(function(s){return {v:s,l:s};}); }
+
+function renderControls(){
+  fillSelect(document.getElementById("newPhase"), phaseItems());
+  fillSelect(document.getElementById("newOwner"), ownerItems());
+  fillSelect(document.getElementById("newStatus"), statusItems(), null, document.getElementById("newStatus").value || "Not started");
+  fillSelect(document.getElementById("fOwner"), ownerItems(), "Everyone");
+  fillSelect(document.getElementById("fStatus"), statusItems().concat([{v:"_overdue",l:"Overdue"},{v:"_needs",l:"Completed, awaiting approval"}]), "All statuses");
+  fillSelect(document.getElementById("fPhase"), phaseItems(), "All phases");
+}
+
+function filtered(){
+  var q = document.getElementById("fSearch").value.trim().toLowerCase();
+  var fo = document.getElementById("fOwner").value, fs = document.getElementById("fStatus").value, fp = document.getElementById("fPhase").value;
+  var known = {}; state.phases.forEach(function(p){known[p.id]=1;});
+  var list = state.tasks.filter(function(t){
+    if (fo && t.owner !== fo) return false;
+    if (fs === "_overdue"){ if (!isOverdue(t)) return false; }
+    else if (fs === "_needs"){ if (!(t.status==="Completed" && !t.approved)) return false; }
+    else if (fs && t.status !== fs) return false;
+    if (fp){ if (fp === "_other" ? known[t.phase] : t.phase !== fp) return false; }
+    if (q){
+      var hay = (t.title + " " + phaseName(t.phase) + " " + t.notes.map(function(n){return n.text + " " + n.by;}).join(" ")).toLowerCase();
+      if (hay.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+  var sort = document.getElementById("fSort").value;
+  if (sort === "due") list = list.slice().sort(function(a,b){ return (a.due||"9999").localeCompare(b.due||"9999"); });
+  if (sort === "status") list = list.slice().sort(function(a,b){ return STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status); });
+  return list;
+}
+
+function renderTasks(){
+  var box = document.getElementById("taskList"); box.textContent = "";
+  var list = filtered();
+  document.getElementById("fCount").textContent = list.length + " of " + state.tasks.length + " tasks";
+  if (!list.length){ append(box, h("div",{class:"empty",text:"No tasks match these filters."})); return; }
+  list.forEach(function(t){ box.append(taskEl(t)); });
+}
+
+function update(t, fn, rerenderRow, focusSel){
+  fn(t); changed(); renderProgress(); renderTimeline();
+  if (rerenderRow){
+    var old = document.querySelector('.task[data-id="'+t.id+'"]');
+    if (old){ var n = taskEl(t); old.replaceWith(n); if (focusSel){ var f = n.querySelector(focusSel); if (f) f.focus(); } }
+  }
+}
+
+function taskEl(t){
+  var open = !!expanded[t.id];
+  var detailId = "d-" + t.id;
+  var chips = [h("span",{class:"chip", text:phaseName(t.phase)})];
+  if (isOverdue(t)) chips.push(h("span",{class:"chip overdue", text:"Overdue"}));
+  if (t.approved) chips.push(h("span",{class:"chip appr", text:"Approved" + (t.approvedOn ? " " + fmt(t.approvedOn) : "")}));
+  if (t.notes.length) chips.push(h("span",{class:"chip", text:t.notes.length + (t.notes.length===1?" note":" notes")}));
+
+  var ownerSel = h("select",{"aria-label":"Person responsible for " + t.title, class:"owner",
+    onchange:function(e){ var v = e.target.value; update(t, function(x){x.owner=v;}, true, "select.owner"); }});
+  fillSelect(ownerSel, ownerItems(), null, t.owner);
+  var statusSel = h("select",{"aria-label":"Status of " + t.title, class:"status " + SCLASS[t.status],
+    onchange:function(e){ var v = e.target.value; update(t, function(x){x.status=v;}, true, "select.status"); }});
+  fillSelect(statusSel, statusItems(), null, t.status);
+  var due = h("input",{type:"date", value:t.due||"", "aria-label":"Due date for " + t.title,
+    onchange:function(e){ var v = e.target.value; update(t, function(x){x.due=v;}, true, 'input[type=date]'); }});
+  var appr = h("label",{title:"Program director approval"}, h("input",{type:"checkbox", checked:t.approved, "aria-label":"PD approved: " + t.title,
+    onchange:function(e){ var v = e.target.checked; update(t, function(x){ x.approved=v; x.approvedOn = v ? todayIso() : ""; }, true, ".appr-cell input"); }}), "PD approved");
+  var nb = h("button",{type:"button", class:"btn small notesbtn", "aria-expanded": String(open), "aria-controls":detailId,
+    onclick:function(){ expanded[t.id] = !expanded[t.id]; var n = taskEl(t); this.closest(".task").replaceWith(n); n.querySelector(".notesbtn").focus(); },
+    text: open ? "Close" : "Notes & edit"});
+
+  var row = h("div",{class:"trow"},
+    h("div",{class:"tcell-title"}, h("div",{class:"ttl", text:t.title}), h("div",{}, chips)),
+    h("div",{}, ownerSel), h("div",{}, statusSel), h("div",{}, due), h("div",{class:"appr-cell"}, appr), h("div",{}, nb));
+
+  var el = h("div",{class:"task" + (t.status==="Completed"?" done":""), "data-id":t.id}, row);
+  if (open) el.append(detailEl(t, detailId));
+  return el;
+}
+
+function detailEl(t, id){
+  /* notes */
+  var notes = h("div",{});
+  if (!t.notes.length) append(notes, h("p",{style:"color:var(--muted);font-size:13px;margin:0 0 8px",text:"No progress notes yet."}));
+  t.notes.slice().reverse().forEach(function(n){
+    append(notes, h("div",{class:"note"},
+      h("div",{class:"meta"}, h("span",{text:(n.by||"") + " · " + fmtStamp(n.at)}),
+        h("button",{type:"button", class:"link", "aria-label":"Delete note", text:"Delete", onclick:function(){
+          if (!confirm("Delete this note?")) return;
+          update(t, function(x){ x.notes = x.notes.filter(function(y){return y.id!==n.id;}); }, true, ".notesbtn"); }})),
+      h("p",{text:n.text})));
+  });
+  var by = h("select",{"aria-label":"Note written by"}); fillSelect(by, ownerItems(), null, t.owner);
+  var txt = h("textarea",{rows:"3", placeholder:"What changed, what's blocking, what's next…", "aria-label":"New progress note"});
+  var nf = h("form",{class:"noteform", onsubmit:function(e){
+    e.preventDefault(); var v = txt.value.trim(); if (!v) { txt.focus(); return; }
+    var who = ownerLabel(by.value);
+    update(t, function(x){ x.notes.push({id:uid(), at:new Date().toISOString(), by:who, text:v}); }, true, "textarea"); }},
+    txt, h("div",{class:"row"}, h("label",{style:"font-size:12px;color:var(--muted)"}, "From "), by, h("button",{type:"submit", class:"btn small primary", text:"Add note"})));
+
+  /* edit */
+  var title = h("input",{type:"text", value:t.title, "aria-label":"Task name"});
+  var phase = h("select",{"aria-label":"Phase"}); fillSelect(phase, phaseItems(), null, phaseById(t.phase) ? t.phase : "_other");
+  var edit = h("div",{class:"editgrid"},
+    h("label",{class:"full"}, "Task name", title),
+    h("label",{}, "Phase", phase),
+    h("div",{style:"display:flex;gap:8px;align-items:end"},
+      h("button",{type:"button", class:"btn small primary", text:"Save changes", onclick:function(){
+        var v = title.value.trim(); if (!v){ title.focus(); return; }
+        var ph = phase.value;
+        update(t, function(x){ x.title=v; x.phase=ph; }, false); renderTasks(); openTask(t.id, true); }}),
+      h("button",{type:"button", class:"btn small danger", text:"Delete task", onclick:function(){
+        if (!confirm('Delete "' + t.title + '" and its notes?')) return;
+        state.tasks = state.tasks.filter(function(x){return x.id!==t.id;}); delete expanded[t.id];
+        changed(); renderAll(); }})),
+    h("p",{class:"full", style:"font-size:12px;color:var(--muted);margin:4px 0 0",
+      text: "Added " + fmtStamp(t.createdAt) + (t.approved && t.approvedOn ? " · Approved by PD on " + fmt(t.approvedOn, true) : "")}));
+
+  return h("div",{class:"detail", id:id},
+    h("div",{}, h("h3",{text:"Progress notes"}), nf, h("div",{style:"margin-top:10px"}, notes)),
+    h("div",{}, h("h3",{text:"Edit task"}), edit));
+}
+
+function openTask(id, keepFilters){
+  expanded[id] = true;
+  var el = document.querySelector('.task[data-id="'+id+'"]');
+  if (!el && !keepFilters){
+    ["fSearch","fOwner","fStatus","fPhase"].forEach(function(k){ document.getElementById(k).value = ""; });
+    renderTasks(); el = document.querySelector('.task[data-id="'+id+'"]');
+  }
+  if (!el) return;
+  var t = state.tasks.filter(function(x){return x.id===id;})[0];
+  var n = taskEl(t); el.replaceWith(n);
+  n.scrollIntoView({behavior:"smooth", block:"center"});
+  n.querySelector(".notesbtn").focus({preventScroll:true});
+}
+
+/* ---------- add task ---------- */
+document.getElementById("addForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  var title = document.getElementById("newTitle").value.trim(); if (!title) return;
+  var t = {id:uid(), title:title, phase:document.getElementById("newPhase").value, owner:document.getElementById("newOwner").value,
+    status:document.getElementById("newStatus").value || "Not started", due:document.getElementById("newDue").value,
+    approved:false, approvedOn:"", notes:[], createdAt:new Date().toISOString()};
+  state.tasks.push(t); changed();
+  document.getElementById("newTitle").value = ""; document.getElementById("newDue").value = "";
+  renderProgress(); renderTimeline(); renderTasks();
+  var el = document.querySelector('.task[data-id="'+t.id+'"]'); if (el) el.scrollIntoView({block:"nearest"});
+  document.getElementById("newTitle").focus();
+});
+["fSearch","fOwner","fStatus","fPhase","fSort"].forEach(function(k){
+  document.getElementById(k).addEventListener(k==="fSearch"?"input":"change", renderTasks);
+});
+
+/* ---------- export / import ---------- */
+document.getElementById("btnExport").addEventListener("click", function(){
+  state.savedAt = new Date().toISOString();
+  var blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+  var a = h("a",{href:URL.createObjectURL(blob), download:"data.json"});
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+  meta.dirty = false; meta.baseSavedAt = state.savedAt; meta.source = "team";
+  saveLocal(); renderSync();
+});
+document.getElementById("btnImport").addEventListener("click", function(){ document.getElementById("fileInput").click(); });
+document.getElementById("fileInput").addEventListener("change", function(e){
+  var f = e.target.files[0]; if (!f) return;
+  var r = new FileReader();
+  r.onload = function(){
+    try { var d = JSON.parse(r.result); if (!valid(d)) throw 0;
+      if (meta.dirty && !confirm("Replace the tasks in this browser with the file you chose? Changes you haven't exported will be lost.")) return;
+      adoptTeam(d, "file");
+    } catch(err){ alert("That file doesn't look like a data.json exported from this page."); }
+    e.target.value = "";
+  };
+  r.readAsText(f);
+});
+document.getElementById("btnUseTeam").addEventListener("click", function(){
+  if (teamPending) adoptTeam(teamPending, "team"); document.getElementById("teamBanner").hidden = true;
+});
+document.getElementById("btnKeepMine").addEventListener("click", function(){
+  if (teamPending){ meta.baseSavedAt = teamPending.savedAt; saveLocal(); }
+  document.getElementById("teamBanner").hidden = true;
+});
+
+/* ---------- settings dialog ---------- */
+var dlg = document.getElementById("settingsDlg"), draftPhases = [];
+function phaseRow(p){
+  var name = h("input",{type:"text", value:p.name, "aria-label":"Phase name", required:true, oninput:function(e){p.name=e.target.value;}});
+  var s = h("input",{type:"date", value:p.start||"", "aria-label":"Phase start", onchange:function(e){p.start=e.target.value;}});
+  var en = h("input",{type:"date", value:p.end||"", "aria-label":"Phase end", onchange:function(e){p.end=e.target.value;}});
+  var rm = h("button",{type:"button", class:"btn small danger", "aria-label":"Remove phase " + p.name, text:"Remove", onclick:function(){
+    var used = state.tasks.some(function(t){return t.phase===p.id;});
+    if (used && !confirm("Tasks in this phase will move to “Other”. Remove it?")) return;
+    draftPhases = draftPhases.filter(function(x){return x!==p;}); renderPhaseRows(); }});
+  return h("div",{class:"phrow"}, name, s, en, rm);
+}
+function renderPhaseRows(){ var b = document.getElementById("phaseRows"); b.textContent = ""; draftPhases.forEach(function(p){ b.append(phaseRow(p)); }); }
+document.getElementById("btnSettings").addEventListener("click", function(){
+  document.getElementById("sTitle").value = state.settings.courseTitle || "";
+  document.getElementById("sGoal").value = state.settings.goal || "";
+  OWNERS.forEach(function(o){ document.getElementById("s"+o).value = state.settings.team[o] || ""; });
+  draftPhases = state.phases.map(function(p){ return {id:p.id, name:p.name, start:p.start, end:p.end}; });
+  renderPhaseRows(); dlg.showModal();
+});
+document.getElementById("addPhase").addEventListener("click", function(){
+  var last = draftPhases[draftPhases.length-1];
+  var st = last && last.end ? addDays(last.end, 1) : todayIso();
+  draftPhases.push({id:uid(), name:"New phase", start:st, end:addDays(st, 14)}); renderPhaseRows();
+});
+dlg.addEventListener("close", function(){
+  if (dlg.returnValue !== "save") return;
+  state.settings.courseTitle = document.getElementById("sTitle").value.trim() || "Course Revision";
+  state.settings.goal = document.getElementById("sGoal").value.trim();
+  OWNERS.forEach(function(o){ state.settings.team[o] = document.getElementById("s"+o).value.trim(); });
+  state.phases = draftPhases.filter(function(p){return p.name.trim();}).map(function(p){
+    if (p.start && p.end && p.end < p.start){ var tmp = p.start; p.start = p.end; p.end = tmp; } return p; });
+  changed(); renderAll();
+});
+
+/* ---------- go ---------- */
+function renderAll(){ renderHeader(); renderSync(); renderProgress(); renderTimeline(); renderControls(); renderTasks(); }
+renderAll();
+})();
+</script>
+</body>
+</html>
